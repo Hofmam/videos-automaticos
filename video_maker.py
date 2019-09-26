@@ -59,7 +59,6 @@ def iniciar():
 	tema = input('Qual o tema que você deseja?\n>>>')
 	texto_sanitizado = bot_txt(tema)
 
-	################################################################################
 	print(texto_sanitizado) # apenas para textar como os dados estão indo até aqui #
-	################################################################################
+
 iniciar()
