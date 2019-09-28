@@ -1,9 +1,21 @@
 #coding: utf-8
+try:
+	import Algorithmia
+	import json
+	from ibm_watson import NaturalLanguageUnderstandingV1
+	from ibm_watson.natural_language_understanding_v1 import Features, EntitiesOptions, KeywordsOptions
 
-import Algorithmia
-from AlgorithmiaKey import apiKey	# importa a apiKey salva no arquivo AlgorithmiaKey.py
+except:
+	print('(°_°)	As dependencias não foram instaladas! Leia as instruções em README.md')
 
-Algorithmia_Autenticado = Algorithmia.client(apiKey)	# Autentica o Algorithmia usando a apiKey
+try:
+	from credentials import Algorithmia_apiKey , Watson_credentials    # importa as credenciais!
+
+except:
+	print('(°_°)	Não foi posivel encontrar suas credenciais! Leia as instruções em README.md')
+	exit()
+
+Algorithmia_Autenticado = Algorithmia.client(Algorithmia_apiKey)	# Autentica o Algorithmia usando a apiKey
 
 ############################################################
 #############       primeiro BOT bot_txt       #############
@@ -15,40 +27,65 @@ def bot_txt(input_do_usuario):
 		tema = {
 		'articleName':input_do_usuario,
 		'lang':'en'
-		}	# dicionario no formato do algoritimo
+		}	# o algoritimo do Algorithmia requer esete formato para fazer a busca.
 
-		algo01 = Algorithmia_Autenticado.algo('web/WikipediaParser/0.1.2')	# declaria uma variavel com o primeiro algoritimo a ser usado
-		algo01.set_options(timeout=120)	# define o tempo maximo para 2 minutos! (120 segundos)
-		conteudo = algo01.pipe(tema).result	# chama o metodo que ira baixar o conteudo e salva tudo em uma variavel
+		algo01 = Algorithmia_Autenticado.algo('web/WikipediaParser/0.1.2')
+		algo01.set_options(timeout=120)
+		conteudo = algo01.pipe(tema).result
 
 		print('(^ ^)	conteudo baixado com sucesso!')
 		return conteudo['content']	# por padrão o metodo devolve um dicionario, neste caso, precisamos apenas do conteudo principal, por isso ['content']
 
 	def sanitize_content(conteudo_bruto):	# segunda função, sanitizar o texto!
-		conteudo_bruto_dividido_em_linhas = conteudo_bruto.split('\n')	# divide o conteudo em linhas para facilitar a sanitização!
+		conteudo_bruto_dividido_em_linhas = conteudo_bruto.split('\n')
 
-		conteudo_sanitizado = ''	# define uma string em branco que ira receber todas as linhas que paçarem pelo teste logico de pre sanitização.
+		conteudo_sanitizado = ''
 
 		for line in conteudo_bruto_dividido_em_linhas:
-			if line.isspace() or line.startswith('=') or len(line) < 15:	# apaga todas as linhas em branco ou com menos de 15 caracteres e os marks do wikipedia
+			if line.isspace() or line.startswith('=') or len(line) < 15:
 				pass
 			else:
-				conteudo_sanitizado += (line + '\n')	# soma todas as linhas a uma string e "devolve" as linhas!
+				conteudo_sanitizado += (line + '\n')
 
 		print('(^ ^)	conteudo sanitizado com sucesso!')
-		return conteudo_sanitizado	# retorna o conteudo sanitizado
+		return conteudo_sanitizado
 
 	def break_sentences(conteudo_sanitizado):	# terceira função, quebrar em sentenças!
-		algo02 = Algorithmia_Autenticado.algo('StanfordNLP/SentenceSplit/0.1.0')	# segundo algoritimo, usado para separar um texto em sentenças.
+		algo02 = Algorithmia_Autenticado.algo('StanfordNLP/SentenceSplit/0.1.0')
 		sentenças = algo02.pipe(conteudo_sanitizado).result
 
 		print('(^ ^)	o conteudo foi dividito em sentenças!')
-		return sentenças	#retorna uma lista com as sentenças encontradas!
+		return sentenças
+
+	def key_words_detect(lista_de_sentenças):
+		service = NaturalLanguageUnderstandingV1(
+			version=Watson_credentials['version'],
+			url=Watson_credentials['url'],
+			iam_apikey = Watson_credentials['apiKey']
+			)
+
+		for sentença in lista_de_sentenças:
+			print('========= SENTENCE: =========')
+			print(sentença)
+			print('========= RELEVANCE =========')
+
+			response = service.analyze(
+				text = sentença,
+				features = Features(
+					keywords = KeywordsOptions()
+					)).get_result()
+
+			for key_word in response['keywords']:
+				print('{0} => {1}'.format(key_word['relevance'],key_word['text']))
+
+		print('FINISHED')
 
 	#iniciação das funções do bot
-	download = download_from_Wikipedia()			# baixa informações sobre o tema
-	sanitizado = sanitize_content(download)			# sanitiza as informações baixadas
-	conteudo_final = break_sentences(sanitizado)	# separa as informações em sentenças 
+	download = download_from_Wikipedia()
+	sanitizado = sanitize_content(download)
+	conteudo_em_sentenças = break_sentences(sanitizado)
+	conteudo_final = key_words_detect(conteudo_em_sentenças)
+
 	return conteudo_final
 
 ############################################################
@@ -58,7 +95,5 @@ def bot_txt(input_do_usuario):
 def iniciar():
 	tema = input('Qual o tema que você deseja?\n>>>')
 	texto_sanitizado = bot_txt(tema)
-
-	print(texto_sanitizado) # apenas para textar como os dados estão indo até aqui #
 
 iniciar()
