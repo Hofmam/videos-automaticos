@@ -1,4 +1,5 @@
 #coding: utf-8
+
 try:
 	import Algorithmia
 	import json
@@ -57,34 +58,45 @@ def bot_txt(input_do_usuario):
 		print('(^ ^)	o conteudo foi dividito em sentenças!')
 		return sentenças
 
-	def key_words_detect(lista_de_sentenças):
+	def select_relevant_sentences(lista_de_sentenças):
 		service = NaturalLanguageUnderstandingV1(
 			version=Watson_credentials['version'],
 			url=Watson_credentials['url'],
 			iam_apikey = Watson_credentials['apiKey']
-			)
+			)	# Autenticação do Watson para o serviço de interpretação de linguagem natural
+
+		sentenças_selecionadas = []
 
 		for sentença in lista_de_sentenças:
-			print('========= SENTENCE: =========')
-			print(sentença)
-			print('========= RELEVANCE =========')
-
 			response = service.analyze(
 				text = sentença,
 				features = Features(
 					keywords = KeywordsOptions()
-					)).get_result()
+					),
+				language = 'en').get_result()
 
-			for key_word in response['keywords']:
-				print('{0} => {1}'.format(key_word['relevance'],key_word['text']))
+			for key_words in response['keywords']:
 
-		print('FINISHED')
+				if len(sentenças_selecionadas) < 10:
+
+					if key_words['relevance'] > 0.97:
+						sentenças_selecionadas.append([ sentença , key_words ])
+						break	# para de iterar sobre as key_words
+
+					else:
+						pass
+
+			if len(sentenças_selecionadas) >= 10:
+				break # parar de iterar as sob as sentenças
+
+		return sentenças_selecionadas
+
 
 	#iniciação das funções do bot
-	download = download_from_Wikipedia()
-	sanitizado = sanitize_content(download)
-	conteudo_em_sentenças = break_sentences(sanitizado)
-	conteudo_final = key_words_detect(conteudo_em_sentenças)
+	download_wikipedia = download_from_Wikipedia()
+	texto_sanitizado = sanitize_content(download_wikipedia)
+	texto_em_sentenças = break_sentences(texto_sanitizado)
+	conteudo_final = select_relevant_sentences(texto_em_sentenças)
 
 	return conteudo_final
 
@@ -93,7 +105,11 @@ def bot_txt(input_do_usuario):
 ############################################################
 
 def iniciar():
-	tema = input('Qual o tema que você deseja?\n>>>')
-	texto_sanitizado = bot_txt(tema)
+
+	def iniciar_robo_de_texto():
+		tema = input('Qual o tema que você deseja?\n>>>')
+		dados_coletados = bot_txt(tema)
+
+	iniciar_robo_de_texto()
 
 iniciar()
